@@ -1,0 +1,172 @@
+<title>Riddlebot</title>
+
+<div id="root"></div>
+
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" crossorigin="anonymous">
+
+<script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-bootstrap@next/dist/react-bootstrap.min.js"></script>
+
+
+<script type="text/babel" charset="utf-8">
+
+  const RB = ReactBootstrap;
+
+  function mod(n, m) {
+    return ((n % m) + m) % m;
+  }
+
+  class App extends React.Component {
+
+    constructor(props) {
+      super(props);
+
+      this.state = {
+        url: 'https://api.noopschallenge.com/riddlebot/start',
+        gh_login: 'garncarz',
+        question: null,
+        answer_check: null,
+      };
+    }
+
+    componentDidMount() {
+      this.login();
+    }
+
+    login() {
+      fetch(this.state.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ login: this.state.gh_login }),
+      })
+        .then(response => response.json())
+        .then(ack => {
+          if (ack.message.includes('Hello from Riddlebot')) {
+            console.log('logged in');
+            this.setState(state => {
+              state.url = new URL(ack.riddlePath, state.url);
+              return state;
+            }, this.get_question);
+          } else {
+            console.err(ack);
+          }
+        });
+    }
+
+    get_question() {
+      fetch(this.state.url)
+        .then(response => response.json())
+        .then(question => {
+          this.setState({
+            question,
+            answer: null,
+            answer_check: null,
+          }, this.try_to_answer);
+        });
+    }
+
+    try_to_answer() {
+      const answer = this.automatic_answer();
+      if (answer) {
+        this.setState({ answer });
+      }
+    }
+
+    automatic_answer() {
+      const type = this.state.question.riddleType;
+      const text = this.state.question.riddleText;
+      var arr = text.split('');
+
+      const char_code_a = 'A'.charCodeAt(0);
+      const char_range = 'Z'.charCodeAt(0) - char_code_a + 1;
+
+      if (type === 'reverse') {
+        return text.split('').reverse().join('');
+      }
+
+      if (type === 'rot13' || type === 'caesar' || type === 'vigenere') {
+        const riddle_key = this.state.question.riddleKey || 13;
+        let riddle_key_pos = 0;
+
+        function next_riddle_key() {
+          if (type === 'vigenere') {
+            const key = riddle_key[riddle_key_pos];
+            riddle_key_pos = (riddle_key_pos + 1) % riddle_key.length;
+            return key;
+          }
+
+          return riddle_key;
+        }
+
+        return arr.map(c => {
+          if (c >= 'A' && c <= 'Z') {
+            return String.fromCharCode(mod(c.charCodeAt(0) - char_code_a - next_riddle_key(), char_range) + char_code_a);
+          }
+          return c;
+        }).join('');
+      }
+    }
+
+    send_answer = () => {
+      fetch(this.state.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ answer: this.state.answer }),
+      })
+        .then(response => response.json())
+        .then(resp => {
+          if (resp.result === 'correct') {
+            this.setState(state => {
+              state.url = new URL(resp.nextRiddlePath, state.url);
+              return state;
+            }, this.get_question);
+          } else {
+            this.setState({ answer_check: resp });
+          }
+        });
+    }
+
+    render() {
+      return (
+        <RB.Container className="mt-4">
+          <h1>Riddlebot</h1>
+
+          <h2>Question</h2>
+          <code>
+            <pre>
+              { JSON.stringify(this.state.question, null, 4) }
+            </pre>
+          </code>
+
+          <h2>Answer</h2>
+          <code>
+            { this.state.answer }
+          </code>
+
+          { this.state.answer_check && <>
+            <h2>Answer check</h2>
+            <code>
+              <pre>
+                { JSON.stringify(this.state.answer_check, null, 4) }
+              </pre>
+            </code>
+          </>}
+
+          <p className="mt-2">
+            <RB.Button variant="primary" onClick={ this.send_answer }>Send</RB.Button>
+          </p>
+        </RB.Container>
+      );
+    }
+
+  }
+
+  ReactDOM.render(<App />, document.getElementById('root'));
+
+</script>
