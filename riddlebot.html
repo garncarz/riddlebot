@@ -28,6 +28,7 @@
         gh_login: 'garncarz',
         question: null,
         answer_check: null,
+        riddle_key: null,
       };
     }
 
@@ -65,6 +66,7 @@
             question,
             answer: null,
             answer_check: null,
+            riddle_key: question.riddleKey,
           }, this.try_to_answer);
         });
     }
@@ -89,7 +91,7 @@
       }
 
       if (type === 'rot13' || type === 'caesar' || type === 'vigenere') {
-        const riddle_key = this.state.question.riddleKey || 13;
+        const riddle_key = this.state.riddle_key || 13;
         let riddle_key_pos = 0;
 
         function next_riddle_key() {
@@ -109,6 +111,18 @@
           return c;
         }).join('');
       }
+    }
+
+    riddle_key_change = (event) => {
+      var value = event.target.value;
+      if (value.includes(',')) {
+        value = value.split(',');
+      }
+
+      this.setState(state => {
+        state.riddle_key = value;
+        return state;
+      }, this.try_to_answer);
     }
 
     send_answer = () => {
@@ -157,6 +171,15 @@
               </pre>
             </code>
           </>}
+
+          <h2>Tuning</h2>
+
+          <RB.Form>
+            <RB.FormGroup>
+              <RB.Form.Label>Riddle key:</RB.Form.Label>
+              <RB.Form.Control value={ this.state.riddle_key } onChange={ this.riddle_key_change } />
+            </RB.FormGroup>
+          </RB.Form>
 
           <p className="mt-2">
             <RB.Button variant="primary" onClick={ this.send_answer }>Send</RB.Button>
