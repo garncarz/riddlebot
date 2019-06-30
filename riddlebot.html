@@ -18,6 +18,9 @@
     return ((n % m) + m) % m;
   }
 
+  const char_code_a = 'A'.charCodeAt(0);
+  const char_range = 'Z'.charCodeAt(0) - char_code_a + 1;
+
   class App extends React.Component {
 
     constructor(props) {
@@ -83,9 +86,6 @@
       const text = this.state.question.riddleText;
       var arr = text.split('');
 
-      const char_code_a = 'A'.charCodeAt(0);
-      const char_range = 'Z'.charCodeAt(0) - char_code_a + 1;
-
       if (type === 'reverse') {
         return text.split('').reverse().join('');
       }
@@ -125,6 +125,30 @@
       }, this.try_to_answer);
     }
 
+    updateRiddlekey = (index, newChar) => {
+      const oldChar = this.state.question.riddleText[index];
+      if (oldChar === ' ') {
+        return;
+      }
+      const diff = mod(oldChar.charCodeAt(0) - newChar.charCodeAt(0), char_range);
+
+      if (Array.isArray(this.state.riddle_key)) {
+        var index_without_spaces = 0;
+        for (var i = 0; i < index; i++) {
+          if (this.state.question.riddleText[i] !== ' ') {
+            index_without_spaces++;
+          }
+        }
+
+        this.setState(state => {
+          state.riddle_key[index_without_spaces % state.riddle_key.length] = diff;
+          return state;
+        }, this.try_to_answer);
+      } else {
+        this.setState({ riddle_key: diff }, this.try_to_answer);
+      }
+    }
+
     send_answer = () => {
       fetch(this.state.url, {
         method: 'POST',
@@ -160,7 +184,11 @@
 
           <h2>Answer</h2>
           <code>
-            { this.state.answer }
+            { this.state.answer &&
+              this.state.answer.split('').map((c, i) =>
+                <Character key={ c + i } value={ c } index={ i } updateRiddlekey={ this.updateRiddlekey } />
+              )
+            }
           </code>
 
           { this.state.answer_check && <>
@@ -185,6 +213,47 @@
             <RB.Button variant="primary" onClick={ this.send_answer }>Send</RB.Button>
           </p>
         </RB.Container>
+      );
+    }
+
+  }
+
+  class Character extends React.Component {
+
+    constructor(props) {
+      super(props);
+
+      this.state = {
+        replaceChar: props.value,
+        showModal: false,
+      };
+    }
+
+    showModal = () => {
+      this.setState({ showModal: true });
+    }
+
+    hideModal = () => {
+      this.setState({ showModal: false });
+      this.props.updateRiddlekey(this.props.index, this.state.replaceChar);
+    }
+
+    changeReplaceChar = (event) => {
+      const new_char = event.target.value;
+      this.setState({ replaceChar: new_char });
+    }
+
+    render() {
+      return (
+        <>
+          <span onClick={ this.showModal }>
+            { this.props.value }
+          </span>
+
+          <RB.Modal show={ this.state.showModal } onHide={ this.hideModal }>
+            <RB.Form.Control value={ this.state.replaceChar } onChange={ this.changeReplaceChar } />
+          </RB.Modal>
+        </>
       );
     }
 
